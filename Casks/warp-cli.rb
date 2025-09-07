@@ -12,11 +12,9 @@ cask "warp-cli" do
   livecheck do
     url "https://releases.warp.dev/channel_versions.json"
     strategy :json do |json|
-      json.dig("stable", "version")&.delete_prefix("v")
+      json.dig("dev", "version")&.delete_prefix("v")
     end
   end
 
-  container type: :naked
-
-  binary "v#{version}", target: "warp"
+  binary "warp-dev", target: "warp"
 end
