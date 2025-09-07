@@ -4,7 +4,7 @@ cask "warp-cli" do
   version "0.2025.09.03.08.11.stable_02"
   sha256 arm: "02742d107b55aee442acf6fa6a0729733aa53ada0fa8c6b41102a1cb7857af0a", intel: "XXX"
     
-  url "http://localhost:8080/download/cli?os=macos&format=standalone&arch=#{arch}&version=v#{version}"
+  url "https://app.warp.dev/download/cli?os=macos&format=standalone&arch=#{arch}&version=v#{version}"
   name "Warp CLI"
   desc "Command-line interface to Warp agents"
   homepage "https://www.warp.dev"
