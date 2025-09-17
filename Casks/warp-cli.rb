@@ -17,5 +17,5 @@ cask "warp-cli" do
     end
   end
 
-  binary "warp"
+  binary "warp-stable", target: "warp"
 end
