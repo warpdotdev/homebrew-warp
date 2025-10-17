@@ -17,5 +17,7 @@ cask "warp-cli@preview" do
     end
   end
 
+  depends_on macos: ">= :sonoma"
+
   binary "warp-preview"
 end
