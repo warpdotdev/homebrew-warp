@@ -17,5 +17,7 @@ cask "warp-cli" do
     end
   end
 
+  depends_on macos: ">= :sonoma"
+
   binary "warp-stable", target: "warp"
 end
