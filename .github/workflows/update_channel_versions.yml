@@ -1,0 +1,23 @@
+name: Update channel versions
+
+on: pull_request
+
+permissions:
+  pull-requests: write
+
+jobs:
+  # Adapted from https://docs.github.com/en/code-security/dependabot/working-with-dependabot/automating-dependabot-with-github-actions#automatically-approving-a-pull-request
+  merge-version-update:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login == 'warpmachineuser' && github.repository == 'warpdotdev/homebrew-warp'
+    steps:
+      - name: Approve PR
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Enable automerge
+        run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
