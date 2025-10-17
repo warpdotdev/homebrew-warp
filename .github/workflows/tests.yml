@@ -5,13 +5,41 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
+
+env:
+  HOMEBREW_DEVELOPER: 1
+  HOMEBREW_NO_AUTO_UPDATE: 1
 
 jobs:
-  test-bot:
+  generate-matrix:
+    outputs:
+      matrix: ${{ steps.generate-matrix.outputs.matrix }}
+    runs-on: macos-latest
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@main
+      
+      - name: Generate CI matrix
+        id: generate-matrix
+        env:
+          PULL_REQUEST_URL: ${{ github.event.pull_request.url }}
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            brew generate-cask-ci-matrix --casks warp-cli warp-cli@preview
+          else
+            brew generate-cask-ci-matrix --url "$PULL_REQUEST_URL"
+          fi
+  
+  test:
+    name: ${{ matrix.name }}
+    needs: generate-matrix
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container || null }}
     strategy:
       matrix:
-        os: [ macos-26, macos-15, macos-15-intel ]
-    runs-on: ${{ matrix.os }}
+        include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
     permissions:
       actions: read
       checks: read
@@ -24,24 +52,65 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Clean up CI machine
+        run: brew test-bot --only-cleanup-before
+      
       - name: Cache Homebrew Bundler RubyGems
         uses: actions/cache@v4
         with:
           path: ${{ steps.set-up-homebrew.outputs.gems-path }}
-          key: ${{ matrix.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
-          restore-keys: ${{ matrix.os }}-rubygems-
-
-      - run: brew test-bot --only-cleanup-before
+          key: ${{ matrix.runner }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
+          restore-keys: ${{ matrix.runner }}-rubygems-
+      
+      - name: Cache style cache
+        if: runner.os == 'macOS'
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew/style
+          key: macos-style-cache-${{ github.sha }}
+          restore-keys: macos-style-cache-
 
       - run: brew test-bot --only-setup
 
-      - run: brew test-bot --only-tap-syntax
-      - run: brew test-bot --only-formulae
-        if: github.event_name == 'pull_request'
+      - name: Check tap syntax
+        run: brew test-bot --tap '${{ matrix.tap }}' --only-tap-syntax
+        id: tap-syntax
+        if: always() && !matrix.cask
+      
+      - name: Run brew fetch --cask ${{ matrix.cask.token }}
+        id: fetch
+        run: brew fetch --cask --retry --force ${{ join(matrix.fetch_args, ' ') }} '${{ matrix.cask.path }}'
+        if: always() && matrix.cask
+        
+      - name: Run brew audit --cask${{ (matrix.cask && ' ') || ' --tap ' }}${{ matrix.cask.token || matrix.tap }}
+        id: audit
+        run: brew audit --cask ${{ join(matrix.audit_args, ' ') }}${{ (matrix.cask && ' ') || '--tap ' }}'${{ matrix.cask.token || matrix.tap }}'
+        if: >
+          always() &&
+          contains(fromJSON('["success", "skipped"]'), steps.tap-syntax.outcome) &&
+          (!matrix.cask || steps.fetch.outcome == 'success') &&
+          !matrix.skip_audit
 
-      - name: Upload bottles as artifact
-        if: always() && github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: bottles_${{ matrix.os }}
-          path: '*.bottle.*'
+      - name: Run brew uninstall --cask --force --zap ${{ matrix.cask.path }}
+        run: brew uninstall --cask --force --zap '${{ matrix.cask.token }}'
+        if: always() && matrix.cask
+      
+      - name: Run brew install --cask ${{ matrix.cask.token }}
+        id: install
+        run: brew install --cask '${{ matrix.cask.path }}'
+        if: always() && matrix.cask && !matrix.skip_install
+        
+      - name: Run brew uninstall --cask ${{ matrix.cask.token }}
+        run: brew uninstall --cask '${{ matrix.cask.path }}'
+        if: always() && steps.install.outcome == 'success'
+
+  # This job aggregates the results of all the different checks in the CI matrix, regardless of which
+  # ones a particular PR needs.
+  aggregate-results:
+    name: aggregate-results
+    needs: test
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check test results
+        run: ${{ needs.test.result == 'success' }}
