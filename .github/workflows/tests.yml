@@ -28,8 +28,13 @@ jobs:
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             brew generate-cask-ci-matrix --casks warp-cli warp-cli@preview
-          else
+          elif [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            brew generate-cask-ci-matrix --syntax-only
+          elif [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
             brew generate-cask-ci-matrix --url "$PULL_REQUEST_URL"
+          else
+            echo "::error file=.github/workflows/tests.yml::Unsupported event ${GITHUB_EVENT_NAME}"
+            exit 1
           fi
   
   test:
