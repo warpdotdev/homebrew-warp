@@ -1,9 +1,9 @@
 cask "warp-cli@preview" do
   arch arm: "aarch64", intel: "x86_64"
 
-  version "0.2025.10.22.08.13.preview_03"
-  sha256 arm:   "b0d56a9d55aefdf389a47e5ab1c21e2f81d086e06d93cee1d09ce814c8d8832d",
-         intel: "d33fae3d1ee127aca543a2fceac4d2092911107c35e80203b6bcb13a77a6fbd8"
+  version "0.2025.10.29.08.12.preview_01"
+  sha256 arm:   "5bb9a22459df4febbbbdef386a1a81680a1c59dd74497b3d580ae5eb16c24a1c",
+         intel: "76adcd9f4ed170ee375face6135ddfd771621355091f6464896d238ba2dd07c4"
 
   url "https://app.warp.dev/download/cli?channel=preview&os=macos&package=tar&arch=#{arch}&version=v#{version}"
   name "Warp CLI (Preview)"
