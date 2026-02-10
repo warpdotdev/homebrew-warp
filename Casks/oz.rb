@@ -1,13 +1,13 @@
-cask "warp-cli" do
+cask "oz" do
   arch arm: "aarch64", intel: "x86_64"
 
-  version "0.2026.02.04.08.20.stable_03"
-  sha256 arm:   "b9ca93d041bcbef7c1c6e782912f6fee796bd89d784a0aede73d915ad5b656f1",
-         intel: "edb08c9e6a850601edb664b58b25e3e6704a60a61bdd4364fbd899d0053a2298"
+  version "0.2026.02.10.11.37.stable_00"
+  sha256 arm:   "76e0db78546be7bb30e80a30930371625ecdf2f410d6ed76fe7f544f3d423f87",
+         intel: "38dd11a6cc8be9943781c900f4c7f96dec418de17a1634c6da572d694cddc794"
 
   url "https://app.warp.dev/download/cli?os=macos&package=tar&arch=#{arch}&version=v#{version}"
-  name "Warp CLI"
-  desc "Command-line interface to Warp agents"
+  name "Oz"
+  desc "Command-line interface to Oz agents"
   homepage "https://www.warp.dev/"
 
   livecheck do
@@ -19,5 +19,5 @@ cask "warp-cli" do
 
   depends_on macos: ">= :sonoma"
 
-  binary "warp-stable", target: "warp"
+  binary "oz-stable", target: "oz"
 end
