@@ -1,9 +1,9 @@
 cask "oz" do
   arch arm: "aarch64", intel: "x86_64"
 
-  version "0.2026.04.08.08.36.stable_01"
-  sha256 arm:   "52e72fcf4de643d3a851b5eeb27c247fa9c84097c37ee422aee4e17e7996b8f5",
-         intel: "b3a4cd4cae81b6e3d1032363ce1c2b2bd47316b344513e3b82f415ec498ed636"
+  version "0.2026.04.08.08.36.stable_02"
+  sha256 arm:   "d0b916b4f1f89282a5542371cac6cbf57df2ad084973a5bd902b2272af07e2c7",
+         intel: "6bb99e258cab78d0fb81ca8fd17fa2d3c890ecae219a0a6c3a6a3377326097ce"
 
   url "https://app.warp.dev/download/cli?os=macos&package=tar&arch=#{arch}&version=v#{version}"
   name "Oz"
