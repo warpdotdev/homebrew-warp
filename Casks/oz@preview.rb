@@ -13,7 +13,24 @@ cask "oz@preview" do
   livecheck do
     url "https://releases.warp.dev/channel_versions.json"
     strategy :json do |json|
-      json.dig("preview", "version")&.delete_prefix("v")
+      channel = json["preview"]
+      next if channel.nil?
+
+      # Start with base channel values.
+      version = channel["version"]
+      cli_version = channel["cli_version"]
+
+      # Apply macOS-specific override if present (mirrors the Rust apply_override logic:
+      # `version` is always replaced; `cli_version` only if the override sets it).
+      mac_override = channel["overrides"]&.find { |o| o.dig("predicate", "target_os") == "macos" }
+      if mac_override
+        info = mac_override["version_info"]
+        version = info["version"] if info&.key?("version")
+        cli_version = info["cli_version"] if info&.key?("cli_version")
+      end
+
+      # Prefer cli_version, fall back to version.
+      (cli_version || version)&.delete_prefix("v")
     end
   end
 
