@@ -17,7 +17,7 @@ cask "oz@preview" do
     end
   end
 
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   binary "oz-preview"
 end
