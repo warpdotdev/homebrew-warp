@@ -1,9 +1,9 @@
 cask "oz@preview" do
   arch arm: "aarch64", intel: "x86_64"
 
-  version "0.2026.06.03.09.49.preview_02"
-  sha256 arm:   "d03833716cc613f4eac3c2363ef40cf8a3e6678e4d774ea32db6325656af9ff0",
-         intel: "08b5b3653e3ba701604df2c9914f85ca14d7eecbcfcaf4b2dbf9ff21185f740d"
+  version "0.2026.06.03.09.49.preview_03"
+  sha256 arm:   "3ebcfeb0c2f32c8620cb9bb0c5cbc536ad762253951d1ab0d160119b4a697645",
+         intel: "2a2b49f2b3408896390a49a75cf3a9e13c1feccdc7bef49205af71dd62f7d745"
 
   url "https://app.warp.dev/download/cli?channel=preview&os=macos&package=tar&arch=#{arch}&version=v#{version}"
   name "Oz (Preview)"
