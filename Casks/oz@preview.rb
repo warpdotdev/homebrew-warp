@@ -13,7 +13,7 @@ cask "oz@preview" do
   livecheck do
     url "https://releases.warp.dev/channel_versions.json"
     strategy :json do |json|
-      json.dig("preview", "version")&.delete_prefix("v")
+      (json.dig("preview", "cli_version") || json.dig("preview", "version"))&.delete_prefix("v")
     end
   end
 
