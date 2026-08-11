@@ -1,23 +1,33 @@
 # Warp Homebrew Tap
 
-Looking for the Warp app? It's in the main [homebrew-cask repository](https://github.com/Homebrew/homebrew-cask) and can be installed with `brew install --cask warp`
+Looking for the Warp app? It's in the main [homebrew-cask repository](https://github.com/Homebrew/homebrew-cask) and can be installed with `brew install --cask warp`.
 
-## Formulae
+## Casks
 
-* `warp-cli`: the standalone [Warp CLI](https://docs.warp.dev/developers/cli)
-* `warp-cli@preview`: the [Preview](https://docs.warp.dev/community/warp-preview-and-alpha-program) release of the Warp CLI
+* `warp-agent-cli`: the stable Warp Agent CLI for macOS and Linux
+* `oz`: the stable command-line interface to Oz agents
+* `oz@preview`: the Preview command-line interface to Oz agents
 
-## How do I install these formulae?
+## Installation
 
-`brew install warpdotdev/warp/<formula>`
+Install Warp Agent CLI directly:
 
-Or `brew tap warpdotdev/warp` and then `brew install <formula>`.
+```shell
+brew install --cask warpdotdev/warp/warp-agent-cli
+```
+
+Alternatively, tap the repository first:
+
+```shell
+brew tap warpdotdev/warp
+brew install --cask <cask>
+```
 
 Or, in a `brew bundle` `Brewfile`:
 
 ```ruby
 tap "warpdotdev/warp"
-brew "<formula>"
+cask "<cask>"
 ```
 
 ## Documentation

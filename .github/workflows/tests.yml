@@ -27,7 +27,7 @@ jobs:
           PULL_REQUEST_URL: ${{ github.event.pull_request.url }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            brew generate-cask-ci-matrix --casks warp-cli warp-cli@preview
+            brew generate-cask-ci-matrix --casks oz oz@preview warp-agent-cli
           elif [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
             brew generate-cask-ci-matrix --syntax-only
           elif [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
@@ -43,6 +43,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     container: ${{ matrix.container || null }}
     strategy:
+      fail-fast: false
       matrix:
         include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
     permissions:
@@ -84,29 +85,29 @@ jobs:
       
       - name: Run brew fetch --cask ${{ matrix.cask.token }}
         id: fetch
-        run: brew fetch --cask --retry --force ${{ join(matrix.fetch_args, ' ') }} '${{ matrix.cask.path }}'
+        run: brew fetch --cask --retry --force ${{ join(matrix.fetch_args, ' ') }} '${{ matrix.tap }}/${{ matrix.cask.token }}'
         if: always() && matrix.cask
         
       - name: Run brew audit --cask${{ (matrix.cask && ' ') || ' --tap ' }}${{ matrix.cask.token || matrix.tap }}
         id: audit
-        run: brew audit --cask ${{ join(matrix.audit_args, ' ') }}${{ (matrix.cask && ' ') || '--tap ' }}'${{ matrix.cask.token || matrix.tap }}'
+        run: brew audit --cask ${{ join(matrix.audit_args, ' ') }}${{ (matrix.cask && ' ') || '--tap ' }}'${{ matrix.cask && format('{0}/{1}', matrix.tap, matrix.cask.token) || matrix.tap }}'
         if: >
           always() &&
           contains(fromJSON('["success", "skipped"]'), steps.tap-syntax.outcome) &&
           (!matrix.cask || steps.fetch.outcome == 'success') &&
           !matrix.skip_audit
 
-      - name: Run brew uninstall --cask --force --zap ${{ matrix.cask.path }}
-        run: brew uninstall --cask --force --zap '${{ matrix.cask.token }}'
+      - name: Run brew uninstall --cask --force --zap ${{ matrix.cask.token }}
+        run: brew uninstall --cask --force --zap '${{ matrix.tap }}/${{ matrix.cask.token }}'
         if: always() && matrix.cask
       
       - name: Run brew install --cask ${{ matrix.cask.token }}
         id: install
-        run: brew install --cask '${{ matrix.cask.path }}'
+        run: brew install --cask '${{ matrix.tap }}/${{ matrix.cask.token }}'
         if: always() && matrix.cask && !matrix.skip_install
         
       - name: Run brew uninstall --cask ${{ matrix.cask.token }}
-        run: brew uninstall --cask '${{ matrix.cask.path }}'
+        run: brew uninstall --cask '${{ matrix.tap }}/${{ matrix.cask.token }}'
         if: always() && steps.install.outcome == 'success'
 
   # This job aggregates the results of all the different checks in the CI matrix, regardless of which
