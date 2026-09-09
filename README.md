@@ -8,6 +8,10 @@ Looking for the Warp app? It's in the main [homebrew-cask repository](https://gi
 * `oz`: the stable command-line interface to Oz agents
 * `oz@preview`: the Preview command-line interface to Oz agents
 
+## Formulae
+
+* `oz-agent-worker`: the self-hosted worker daemon for Warp cloud agents.
+
 ## Installation
 
 Install Warp Agent CLI directly:
@@ -16,11 +20,18 @@ Install Warp Agent CLI directly:
 brew install --cask warpdotdev/warp/warp-agent-cli
 ```
 
+Install the agent worker directly:
+
+```shell
+brew install warpdotdev/warp/oz-agent-worker
+```
+
 Alternatively, tap the repository first:
 
 ```shell
 brew tap warpdotdev/warp
 brew install --cask <cask>
+brew install <formula>
 ```
 
 Or, in a `brew bundle` `Brewfile`:
@@ -28,6 +39,7 @@ Or, in a `brew bundle` `Brewfile`:
 ```ruby
 tap "warpdotdev/warp"
 cask "<cask>"
+brew "<formula>"
 ```
 
 ## Documentation

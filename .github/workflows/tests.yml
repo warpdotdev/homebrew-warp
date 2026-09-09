@@ -31,7 +31,19 @@ jobs:
           elif [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
             brew generate-cask-ci-matrix --syntax-only
           elif [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            brew generate-cask-ci-matrix --url "$PULL_REQUEST_URL"
+            # `generate-cask-ci-matrix --url` odie's outright if the diff touches any .rb file
+            # outside Casks/, cmd/ or .github/actions/ (e.g. our Formula/ files), so only use it
+            # when the PR actually touches a cask; otherwise fall back to --syntax-only, which
+            # skips that check entirely and just runs the tap-wide syntax/style job.
+            changed_files=$(git diff --name-only "$(git rev-parse origin)...$(git rev-parse HEAD)")
+            if echo "$changed_files" | grep -q '^Casks/' && echo "$changed_files" | grep -q '^Formula/'; then
+              echo "::error::This PR modifies both Casks/ and Formula/ files. brew generate-cask-ci-matrix can't process a mixed diff (it treats any changed Formula/*.rb file as misplaced). Please split cask and formula changes into separate PRs."
+              exit 1
+            elif echo "$changed_files" | grep -q '^Casks/'; then
+              brew generate-cask-ci-matrix --url "$PULL_REQUEST_URL"
+            else
+              brew generate-cask-ci-matrix --syntax-only
+            fi
           else
             echo "::error file=.github/workflows/tests.yml::Unsupported event ${GITHUB_EVENT_NAME}"
             exit 1
@@ -62,7 +74,7 @@ jobs:
         run: brew test-bot --only-cleanup-before
       
       - name: Cache Homebrew Bundler RubyGems
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ steps.set-up-homebrew.outputs.gems-path }}
           key: ${{ matrix.runner }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
@@ -70,7 +82,7 @@ jobs:
       
       - name: Cache style cache
         if: runner.os == 'macOS'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/Library/Caches/Homebrew/style
           key: macos-style-cache-${{ github.sha }}
@@ -110,13 +122,65 @@ jobs:
         run: brew uninstall --cask '${{ matrix.tap }}/${{ matrix.cask.token }}'
         if: always() && steps.install.outcome == 'success'
 
+  test-formula:
+    name: test-formula (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@main
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clean up CI machine
+        run: brew test-bot --only-cleanup-before
+
+      - name: Cache Homebrew Bundler RubyGems
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.set-up-homebrew.outputs.gems-path }}
+          key: ${{ matrix.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
+          restore-keys: ${{ matrix.os }}-rubygems-
+
+      - name: Cache style cache
+        if: runner.os == 'macOS'
+        uses: actions/cache@v6
+        with:
+          path: ~/Library/Caches/Homebrew/style
+          key: macos-style-cache-${{ github.sha }}
+          restore-keys: macos-style-cache-
+
+      - run: brew test-bot --only-setup
+
+      # `--only-formulae` self-detects whichever formula changed in this tap (via git diff)
+      # and runs audit, install, test and bottling for it; it's a no-op if none changed.
+      - run: brew test-bot --only-formulae
+        if: github.event_name == 'pull_request'
+
+      - name: Upload bottles as artifact
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: bottles_test-formula_${{ matrix.os }}
+          path: '*.bottle.*'
+          if-no-files-found: ignore
+
   # This job aggregates the results of all the different checks in the CI matrix, regardless of which
   # ones a particular PR needs.
   aggregate-results:
     name: aggregate-results
-    needs: test
+    needs: [test, test-formula]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Check test results
-        run: ${{ needs.test.result == 'success' }}
+        run: ${{ needs.test.result == 'success' && needs['test-formula'].result == 'success' }}
