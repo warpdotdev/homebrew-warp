@@ -27,7 +27,7 @@ jobs:
           PULL_REQUEST_URL: ${{ github.event.pull_request.url }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            brew generate-cask-ci-matrix --casks oz oz@preview warp-agent-cli
+            brew generate-cask-ci-matrix --casks oz oz@preview warp-agent-cli oz-agent-worker
           elif [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
             brew generate-cask-ci-matrix --syntax-only
           elif [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then

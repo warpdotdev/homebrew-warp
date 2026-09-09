@@ -7,6 +7,7 @@ Looking for the Warp app? It's in the main [homebrew-cask repository](https://gi
 * `warp-agent-cli`: the stable Warp Agent CLI for macOS and Linux
 * `oz`: the stable command-line interface to Oz agents
 * `oz@preview`: the Preview command-line interface to Oz agents
+* `oz-agent-worker`: self-hosted worker for running Oz cloud agents on your own infrastructure (macOS and Linux)
 
 ## Installation
 
