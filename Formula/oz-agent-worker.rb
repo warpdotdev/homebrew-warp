@@ -14,8 +14,8 @@ class OzAgentWorker < Formula
 
   bottle do
     root_url "https://github.com/warpdotdev/homebrew-warp/releases/download/oz-agent-worker-2026-09-09-16-18-52"
-    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "90f40889e135da71fd06ab8d8de50554aa964c6709e9b725fc10216ad350aaf0"
-    sha256 cellar: :any,                 x86_64_linux: "ea4abd2b37f9419267a6caf69b1b48d510fd62bef9f074eda09583b747436671"
+    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "7a93216979d6618f6daf7cc7755d20ab6de022c0fa43e91d18f2e13f3a61319a"
+    sha256 cellar: :any,                 x86_64_linux: "ab909424d6fc47eb9e3812ba07b9ac99b0237a435f396c2b1e3aa8da175be4fc"
   end
 
   depends_on "go" => :build
