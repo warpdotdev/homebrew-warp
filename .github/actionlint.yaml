@@ -1,0 +1,7 @@
+self-hosted-runner:
+  # Custom Namespace (namespace.so) runner labels used by formula-related jobs in tests.yml.
+  labels:
+    - namespace-profile-ubuntu-small
+    - namespace-profile-mac-ci
+    # Same ubuntu-small profile, with the Landlock feature Homebrew's Linux sandbox needs.
+    - namespace-profile-ubuntu-small;linux.landlock=enabled
