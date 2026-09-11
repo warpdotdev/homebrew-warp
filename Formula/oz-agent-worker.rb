@@ -15,6 +15,12 @@ class OzAgentWorker < Formula
     regex(/^v?(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})$/i)
   end
 
+  bottle do
+    root_url "https://github.com/warpdotdev/homebrew-warp/releases/download/oz-agent-worker-2026-09-09-16-18-52"
+    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "dbbfa7f16f699f942f992c847c81e58c0064cdba418d3d5e654e02b7846aacd1"
+    sha256 cellar: :any,                 x86_64_linux: "197ed40bb4ff9df253d2efd46b3e8bef6d238c8f28556cea097fa21afe92b472"
+  end
+
   depends_on "go" => :build
 
   def install
