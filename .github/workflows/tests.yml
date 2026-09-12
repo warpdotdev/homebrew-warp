@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Set up Homebrew
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@main
+        uses: Homebrew/actions/setup-homebrew@f8d4222eb633e65c2a0157383cf80861fc7fae7f # 2026.09.07.1
       
       - name: Generate CI matrix
         id: generate-matrix
@@ -66,7 +66,7 @@ jobs:
     steps:
       - name: Set up Homebrew
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@main
+        uses: Homebrew/actions/setup-homebrew@f8d4222eb633e65c2a0157383cf80861fc7fae7f # 2026.09.07.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -127,8 +127,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+        include:
+          - os: macos-latest
+            runner: namespace-profile-mac-ci
+          - os: ubuntu-latest
+            # Homebrew's Linux sandbox needs Landlock, which isn't enabled on Namespace runners
+            # by default; the `;linux.landlock=enabled` suffix turns it on for this profile.
+            runner: namespace-profile-ubuntu-small;linux.landlock=enabled
+    runs-on: ${{ matrix.runner }}
     permissions:
       actions: read
       checks: read
@@ -174,12 +180,142 @@ jobs:
           path: '*.bottle.*'
           if-no-files-found: ignore
 
+  # `main` is protected by a ruleset requiring every change go through a PR.
+  # `brew pr-pull`'s standard model (merge a bottle commit, then `git push` straight to `main`)
+  # is not compatible with this. So instead of relying on `publish.yml` to bottle formulae,
+  # push the bottle commit back onto the PR's own branch here, using `brew pr-upload`
+  # to both upload the bottle binaries and merge their hashes into the formula in one atomic
+  # step (avoiding ever mixing hashes from separate, non-reproducible builds). The PR then
+  # merges through the normal GitHub PR flow.
+  commit-bottle:
+    name: commit-bottle
+    needs: test-formula
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      needs.test-formula.result == 'success'
+    runs-on: namespace-profile-ubuntu-small
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      # A push authenticated as the default GITHUB_TOKEN is attributed to the `github-actions[bot]`
+      # identity, which this repo's workflow-approval policy treats like an unrecognized/first-time
+      # contributor - the resulting `pull_request: synchronize` run then sits stuck needing a human
+      # to click "Approve and run", even though this isn't a fork PR. Using a PAT attributes
+      # the push to a trusted collaborator identity instead, so the retriggered run executes
+      # automatically like any other trusted push.
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@f8d4222eb633e65c2a0157383cf80861fc7fae7f # 2026.09.07.1
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_PAT }}
+
+      # `git-user-config`'s `username` input defaults to `github.actor` (whoever triggered *this*
+      # run), not the identity behind the token above. That would mean we can't identify bot-pushed
+      # bottle commits. Instead, we resolve the login of the HOMEBREW_TAP_PAT token.
+      - name: Resolve PAT identity
+        id: pat-identity
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_PAT }}
+        run: echo "login=$(gh api user --jq .login)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up git
+        id: set-up-git
+        uses: Homebrew/actions/git-user-config@f8d4222eb633e65c2a0157383cf80861fc7fae7f # 2026.09.07.1
+        with:
+          username: ${{ steps.pat-identity.outputs.login }}
+
+      - name: Check out PR branch in tap
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          tap_dir="$(brew --repository "${GITHUB_REPOSITORY}")"
+          cd "${tap_dir}"
+          git fetch origin "pull/${PR}/head:${HEAD_REF}"
+          git checkout "${HEAD_REF}"
+
+      - name: Download bottle artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: bottles_test-formula_*
+          path: bottle-artifacts
+          merge-multiple: true
+
+      - name: Check whether there's anything new to publish
+        id: check-bottled
+        env:
+          # The exact email `git-user-config` just resolved and configured above - not a
+          # hardcoded guess at the noreply-email format, which would break if this identity's
+          # GitHub profile ever set (or unset) a public email address.
+          BOT_EMAIL: ${{ steps.set-up-git.outputs.email }}
+        run: |
+          shopt -s nullglob
+          json_files=(bottle-artifacts/*.bottle.json)
+          if [ ${#json_files[@]} -eq 0 ]; then
+            echo "No bottle JSON manifests found; nothing to publish."
+            echo "already_bottled=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Pushing a bottle commit onto the PR branch re-triggers `pull_request: synchronize`.
+          # We previously guarded this by comparing bottle checksums, but Go builds aren't
+          # reproducible: a fresh rebuild of *identical* source always produces different bytes,
+          # so that comparison never matched and this job looped forever (rebuild -> new hash ->
+          # "nothing matches" -> commit -> retrigger -> ...). Instead, check whether HEAD was
+          # already committed by this same automation, identified by its committer email. If so,
+          # there's nothing new to do. Any genuine new human commit changes HEAD's committer away
+          # from this identity, correctly triggering a rebuild even if that commit didn't touch
+          # the bottle block itself.
+          tap_dir="$(brew --repository "${GITHUB_REPOSITORY}")"
+          committer_email="$(git -C "${tap_dir}" log -1 --format=%ce)"
+          if [[ "${committer_email}" == "${BOT_EMAIL}" ]]; then
+            echo "HEAD is already a commit from this automation; nothing more to do."
+            echo "already_bottled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Clear any stale bottle release from earlier PR iterations
+        if: steps.check-bottled.outputs.already_bottled != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_PAT }}
+        run: |
+          # Bottle binaries aren't reproducible, so re-running this job for the same PR/version
+          # (e.g. after a force-push that doesn't change the formula, or a retriggered run) would
+          # produce different bytes than a previous run's, but `pr-upload` tries to publish them
+          # under the same already-claimed release-asset filename, which GitHub rejects with a
+          # "ReleaseAsset already_exists" error. Delete any such stale release first so the
+          # upload below always starts from a clean slate.
+          tags=$(jq -r '.[].bottle.root_url' bottle-artifacts/*.bottle.json | sed -E 's#.*/releases/download/##' | sort -u)
+          for tag in $tags; do
+            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              echo "Deleting stale release $tag from an earlier PR iteration"
+              gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+            fi
+          done
+
+      - name: Upload bottles and merge hashes into formula
+        if: steps.check-bottled.outputs.already_bottled != 'true'
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_TAP_PAT }}
+        run: |
+          cd bottle-artifacts
+          brew pr-upload --verbose
+
+      - name: Push bottle commit onto the PR branch
+        if: steps.check-bottled.outputs.already_bottled != 'true'
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          tap_dir="$(brew --repository "${GITHUB_REPOSITORY}")"
+          cd "${tap_dir}"
+          git push origin "HEAD:${HEAD_REF}"
+
   # This job aggregates the results of all the different checks in the CI matrix, regardless of which
   # ones a particular PR needs.
   aggregate-results:
     name: aggregate-results
     needs: [test, test-formula]
-    runs-on: ubuntu-latest
+    runs-on: namespace-profile-ubuntu-small
     if: always()
     steps:
       - name: Check test results
