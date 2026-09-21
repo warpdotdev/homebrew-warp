@@ -1,9 +1,9 @@
 class OzAgentWorker < Formula
   desc "Self-hosted worker for Warp cloud agents"
   homepage "https://github.com/warpdotdev/oz-agent-worker"
-  url "https://github.com/warpdotdev/oz-agent-worker/archive/refs/tags/v2026-09-21-16-45-09.tar.gz"
-  version "2026-09-21-16-45-09"
-  sha256 "3b459e58a8a9d78c9a1e685ef12a8d98bd4f72e8519f04064080e118faefe8d7"
+  url "https://github.com/warpdotdev/oz-agent-worker/archive/refs/tags/v2026-09-21-17-05-01.tar.gz"
+  version "2026-09-21-17-05-01"
+  sha256 "880811c166892e45bd25af3e84f8b47ebefad058281f8f9ccb996a10b781a3a3"
   license "MIT"
   head "https://github.com/warpdotdev/oz-agent-worker.git", branch: "main"
 
