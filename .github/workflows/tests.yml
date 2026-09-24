@@ -282,13 +282,19 @@ jobs:
             fi
           done
 
-      - name: Upload bottles and merge hashes into formula
+      - name: Upload bottles, merge hashes, and audit formulae
         if: steps.check-bottled.outputs.already_bottled != 'true'
         env:
           HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_TAP_PAT }}
         run: |
           cd bottle-artifacts
+          mapfile -t formulae < <(jq -r 'keys[]' ./*.bottle.json | sort -u)
+          if (( ${#formulae[@]} == 0 )); then
+            echo "::error::Bottle manifests did not identify any formulae."
+            exit 1
+          fi
           brew pr-upload --verbose --no-commit
+          brew audit --skip-style --verbose "${formulae[@]}"
 
       - name: Commit and push bottles onto the PR branch
         if: steps.check-bottled.outputs.already_bottled != 'true'
