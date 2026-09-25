@@ -212,8 +212,8 @@ jobs:
           token: ${{ secrets.HOMEBREW_TAP_PAT }}
 
       # `git-user-config`'s `username` input defaults to `github.actor` (whoever triggered *this*
-      # run), not the identity behind the token above. That would mean we can't identify bot-pushed
-      # bottle commits. Instead, we resolve the login of the HOMEBREW_TAP_PAT token.
+      # run), not the identity behind the token above. Resolve the token's login so the custom
+      # bottle commit uses the same identity that pushes it.
       - name: Resolve PAT identity
         id: pat-identity
         env:
@@ -221,7 +221,6 @@ jobs:
         run: echo "login=$(gh api user --jq .login)" >> "$GITHUB_OUTPUT"
 
       - name: Set up git
-        id: set-up-git
         uses: Homebrew/actions/git-user-config@f8d4222eb633e65c2a0157383cf80861fc7fae7f # 2026.09.07.1
         with:
           username: ${{ steps.pat-identity.outputs.login }}
@@ -245,11 +244,6 @@ jobs:
 
       - name: Check whether there's anything new to publish
         id: check-bottled
-        env:
-          # The exact email `git-user-config` just resolved and configured above - not a
-          # hardcoded guess at the noreply-email format, which would break if this identity's
-          # GitHub profile ever set (or unset) a public email address.
-          BOT_EMAIL: ${{ steps.set-up-git.outputs.email }}
         run: |
           shopt -s nullglob
           json_files=(bottle-artifacts/*.bottle.json)
@@ -258,21 +252,16 @@ jobs:
             echo "already_bottled=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # Pushing a bottle commit onto the PR branch re-triggers `pull_request: synchronize`.
-          # We previously guarded this by comparing bottle checksums, but Go builds aren't
-          # reproducible: a fresh rebuild of *identical* source always produces different bytes,
-          # so that comparison never matched and this job looped forever (rebuild -> new hash ->
-          # "nothing matches" -> commit -> retrigger -> ...). Instead, check whether HEAD was
-          # already committed by this same automation, identified by its committer email. If so,
-          # there's nothing new to do. Any genuine new human commit changes HEAD's committer away
-          # from this identity, correctly triggering a rebuild even if that commit didn't touch
-          # the bottle block itself.
           tap_dir="$(brew --repository "${GITHUB_REPOSITORY}")"
-          committer_email="$(git -C "${tap_dir}" log -1 --format=%ce)"
-          if [[ "${committer_email}" == "${BOT_EMAIL}" ]]; then
-            echo "HEAD is already a commit from this automation; nothing more to do."
+          source_sha="$(git -C "${tap_dir}" rev-parse HEAD)"
+          parent_sha="$(git -C "${tap_dir}" rev-parse HEAD^)"
+          bottled_from="$(git -C "${tap_dir}" log -1 --format='%(trailers:key=Bottled-From,valueonly)')"
+          if [[ "${bottled_from}" == "${parent_sha}" ]]; then
+            echo "HEAD already bottles its parent source commit; nothing more to do."
             echo "already_bottled=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "SOURCE_SHA=${source_sha}" >> "$GITHUB_OUTPUT"
 
       - name: Clear any stale bottle release from earlier PR iterations
         if: steps.check-bottled.outputs.already_bottled != 'true'
@@ -293,21 +282,53 @@ jobs:
             fi
           done
 
-      - name: Upload bottles and merge hashes into formula
+      - name: Upload bottles, merge hashes, and audit formulae
         if: steps.check-bottled.outputs.already_bottled != 'true'
         env:
           HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_TAP_PAT }}
         run: |
           cd bottle-artifacts
-          brew pr-upload --verbose
+          mapfile -t formulae < <(jq -r 'keys[]' ./*.bottle.json | sort -u)
+          if (( ${#formulae[@]} == 0 )); then
+            echo "::error::Bottle manifests did not identify any formulae."
+            exit 1
+          fi
+          brew pr-upload --verbose --no-commit
+          brew audit --skip-style --verbose "${formulae[@]}"
 
-      - name: Push bottle commit onto the PR branch
+      - name: Commit and push bottles onto the PR branch
         if: steps.check-bottled.outputs.already_bottled != 'true'
         env:
           HEAD_REF: ${{ github.head_ref }}
+          SOURCE_SHA: ${{ steps.check-bottled.outputs.SOURCE_SHA }}
         run: |
           tap_dir="$(brew --repository "${GITHUB_REPOSITORY}")"
           cd "${tap_dir}"
+          mapfile -t formula_files < <(git diff --name-only -- 'Formula/*.rb')
+          mapfile -t package_versions < <(
+            jq -r '.[].formula.pkg_version' "${GITHUB_WORKSPACE}"/bottle-artifacts/*.bottle.json |
+              sort -u
+          )
+          if (( ${#formula_files[@]} == 0 )); then
+            echo "::error::brew pr-upload did not update any formula files."
+            exit 1
+          elif (( ${#formula_files[@]} == 1 && ${#package_versions[@]} == 1 )); then
+            formula_file="${formula_files[0]}"
+            formula_name="$(basename "${formula_file}" .rb)"
+            if git show "${SOURCE_SHA}:${formula_file}" | grep -q '^[[:space:]]*bottle do$'; then
+              update_or_add="update"
+            else
+              update_or_add="add"
+            fi
+            subject="${formula_name}: ${update_or_add} ${package_versions[0]} bottle."
+          else
+            subject="Update bottles for ${#formula_files[@]} formulae."
+          fi
+
+          git commit --verbose \
+            --message="${subject}" \
+            --message="Bottled-From: ${SOURCE_SHA}" \
+            -- "${formula_files[@]}"
           git push origin "HEAD:${HEAD_REF}"
 
   # This job aggregates the results of all the different checks in the CI matrix, regardless of which
