@@ -1,9 +1,9 @@
 class OzAgentWorker < Formula
   desc "Self-hosted worker for Warp cloud agents"
   homepage "https://github.com/warpdotdev/oz-agent-worker"
-  url "https://github.com/warpdotdev/oz-agent-worker/archive/refs/tags/v2026-09-24-19-55-25.tar.gz"
-  version "2026-09-24-19-55-25"
-  sha256 "1a879e5969a08ccaeb058e761128a0b37f85774df2821b2dd8023ff7ee53f62d"
+  url "https://github.com/warpdotdev/oz-agent-worker/archive/refs/tags/v2026-09-29-21-35-47.tar.gz"
+  version "2026-09-29-21-35-47"
+  sha256 "b34ba1e390a1ca61d3eb1d86103fec310450a9c8c0bac5fb811a20d28c5e17db"
   license "MIT"
   head "https://github.com/warpdotdev/oz-agent-worker.git", branch: "main"
 
@@ -16,9 +16,9 @@ class OzAgentWorker < Formula
   end
 
   bottle do
-    root_url "https://github.com/warpdotdev/homebrew-warp/releases/download/oz-agent-worker-2026-09-09-16-18-52"
-    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "dbbfa7f16f699f942f992c847c81e58c0064cdba418d3d5e654e02b7846aacd1"
-    sha256 cellar: :any,                 x86_64_linux: "197ed40bb4ff9df253d2efd46b3e8bef6d238c8f28556cea097fa21afe92b472"
+    root_url "https://github.com/warpdotdev/homebrew-warp/releases/download/oz-agent-worker-2026-09-29-21-35-47"
+    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "b012e579f46224c108d878182c2b7d07715d218dab99b38d574f27bd07434d6d"
+    sha256 cellar: :any,                 x86_64_linux: "c4ed760cce702a77f83ff1bf50be6d00590e45901b61e0fd5ad0568afb18af2c"
   end
 
   depends_on "go" => :build
