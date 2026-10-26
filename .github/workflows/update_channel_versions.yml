@@ -4,6 +4,7 @@ on: pull_request
 
 permissions:
   pull-requests: write
+  id-token: write # octo-sts/action exchanges the job's OIDC token for a scoped GitHub token
 
 jobs:
   # Adapted from https://docs.github.com/en/code-security/dependabot/working-with-dependabot/automating-dependabot-with-github-actions#automatically-approving-a-pull-request
@@ -11,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       github.repository == 'warpdotdev/homebrew-warp' &&
-      contains(fromJSON('["warpmachineuser", "warp-workflows[bot]"]'), github.event.pull_request.user.login)
+      contains(fromJSON('["warpmachineuser", "octo-sts[bot]"]'), github.event.pull_request.user.login)
     steps:
       - name: Approve PR
         run: gh pr review --approve "$PR_URL"
@@ -21,17 +22,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Mint auto-merge token
         id: app_token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
         with:
-          client-id: ${{ vars.WARP_WORKFLOWS_APP_CLIENT_ID }}
-          private-key: ${{ secrets.WARP_WORKFLOWS_APP_PRIVATE_KEY }}
-          owner: warpdotdev
-          repositories: homebrew-warp
-          permission-contents: write
-          permission-pull-requests: write
+          scope: warpdotdev/homebrew-warp
+          identity: homebrew-warp-automerge
       - name: Enable automerge
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
-          # The app token turns on auto-merge because GITHUB_TOKEN cannot.
+          # The octo-sts token turns on auto-merge because GITHUB_TOKEN cannot.
           GH_TOKEN: ${{ steps.app_token.outputs.token }}

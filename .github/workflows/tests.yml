@@ -198,17 +198,15 @@ jobs:
     permissions:
       actions: read
       contents: write
+      id-token: write # octo-sts/action exchanges the job's OIDC token for a scoped GitHub token
     steps:
-      # Push as the app bot because the workflow-approval policy holds runs that `github-actions[bot]` pushes start.
+      # Push as the octo-sts bot because the workflow-approval policy holds runs that `github-actions[bot]` pushes start.
       - name: Mint homebrew-warp token
         id: app_token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
         with:
-          client-id: ${{ vars.WARP_WORKFLOWS_APP_CLIENT_ID }}
-          private-key: ${{ secrets.WARP_WORKFLOWS_APP_PRIVATE_KEY }}
-          owner: warpdotdev
-          repositories: homebrew-warp
-          permission-contents: write
+          scope: warpdotdev/homebrew-warp
+          identity: homebrew-warp-bottle
 
       - name: Set up Homebrew
         id: set-up-homebrew
@@ -216,11 +214,11 @@ jobs:
         with:
           token: ${{ steps.app_token.outputs.token }}
 
-      # The `username` default is `github.actor`, so set it to the app bot that pushes the commit.
+      # The `username` default is `github.actor`, so set it to the bot that pushes the commit.
       - name: Set up git
         uses: Homebrew/actions/git-user-config@f8d4222eb633e65c2a0157383cf80861fc7fae7f # 2026.09.07.1
         with:
-          username: ${{ steps.app_token.outputs.app-slug }}[bot]
+          username: octo-sts[bot]
 
       - name: Check out PR branch in tap
         env:
