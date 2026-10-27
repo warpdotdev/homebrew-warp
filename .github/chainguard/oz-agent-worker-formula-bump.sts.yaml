@@ -1,5 +1,7 @@
 issuer: https://token.actions.githubusercontent.com
 subject_pattern: repo:warpdotdev/oz-agent-worker:ref:refs/(heads/main|tags/v[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2})
+claim_pattern:
+  job_workflow_ref: warpdotdev/oz-agent-worker/\.github/workflows/update_homebrew_formula\.yml@refs/(heads/main|tags/v[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2})
 permissions:
   contents: write
   pull_requests: write
